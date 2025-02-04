@@ -2,194 +2,52 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>3D 迷路ゲーム</title>
+  <title>Three.js シンプルテスト</title>
   <style>
-    body { margin: 0; overflow: hidden; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+    }
     canvas { display: block; }
   </style>
 </head>
 <body>
-  <!-- Three.js ライブラリと OrbitControls を CDN 経由で読み込み -->
+  <!-- Three.js と OrbitControls（互換性のあるバージョンを使用） -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.js"></script>
   <script>
-    /***********************************
-     * 迷路生成アルゴリズム（DFS）設定
-     ***********************************/
-    const cols = 10;          // 迷路の横のセル数
-    const rows = 10;          // 迷路の縦のセル数
-    const cellSize = 10;      // 1セルのサイズ（単位はシーン内の長さ）
-
-    let grid = [];
-    let stack = [];
-
-    // セルオブジェクト（各セルは上下左右に壁を持つ）
-    class Cell {
-      constructor(i, j) {
-        this.i = i;
-        this.j = j;
-        // walls: [上, 右, 下, 左]
-        this.walls = [true, true, true, true];
-        this.visited = false;
-      }
-      // 隣接する未訪問セルをランダムに返す
-      checkNeighbors() {
-        const neighbors = [];
-        const top    = grid[this.index(this.i, this.j - 1)];
-        const right  = grid[this.index(this.i + 1, this.j)];
-        const bottom = grid[this.index(this.i, this.j + 1)];
-        const left   = grid[this.index(this.i - 1, this.j)];
-  
-        if (top && !top.visited) neighbors.push(top);
-        if (right && !right.visited) neighbors.push(right);
-        if (bottom && !bottom.visited) neighbors.push(bottom);
-        if (left && !left.visited) neighbors.push(left);
-  
-        if (neighbors.length > 0) {
-          const r = Math.floor(Math.random() * neighbors.length);
-          return neighbors[r];
-        } else {
-          return undefined;
-        }
-      }
-      // グリッド配列でのインデックスを計算
-      index(i, j) {
-        if (i < 0 || j < 0 || i >= cols || j >= rows) return -1;
-        return i + j * cols;
-      }
-    }
-
-    // グリッドの初期化
-    for (let j = 0; j < rows; j++) {
-      for (let i = 0; i < cols; i++) {
-        grid.push(new Cell(i, j));
-      }
-    }
-
-    // 2つのセル間の壁を取り除く関数
-    function removeWalls(a, b) {
-      const x = a.i - b.i;
-      if (x === 1) {
-        a.walls[3] = false; // a の左壁
-        b.walls[1] = false; // b の右壁
-      } else if (x === -1) {
-        a.walls[1] = false;
-        b.walls[3] = false;
-      }
-      const y = a.j - b.j;
-      if (y === 1) {
-        a.walls[0] = false;
-        b.walls[2] = false;
-      } else if (y === -1) {
-        a.walls[2] = false;
-        b.walls[0] = false;
-      }
-    }
-
-    // 迷路の自動生成（深さ優先探索: DFS）
-    let current = grid[0];
-    current.visited = true;
-    function generateMaze() {
-      while (true) {
-        const next = current.checkNeighbors();
-        if (next) {
-          next.visited = true;
-          stack.push(current);
-          removeWalls(current, next);
-          current = next;
-        } else if (stack.length > 0) {
-          current = stack.pop();
-        } else {
-          break;
-        }
-      }
-    }
-    generateMaze();
-
-    /***********************************
-     * Three.js による 3D シーンの構築
-     ***********************************/
+    // シンプルなシーンのセットアップ
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xcccccc);
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(cols * cellSize / 2, 50, rows * cellSize * 1.2);
-
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // カメラ操作用の OrbitControls
+    // 立方体を作成してシーンに追加
+    const geometry = new THREE.BoxGeometry();
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    // カメラの位置設定
+    camera.position.z = 5;
+
+    // OrbitControls を設定
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.target.set(cols * cellSize / 2, 0, rows * cellSize / 2);
-    controls.update();
 
-    // 環境光と平行光源の追加
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(0, 50, 0);
-    scene.add(directionalLight);
-
-    // 床（迷路の下部）を作成
-    const floorGeometry = new THREE.PlaneGeometry(cols * cellSize, rows * cellSize);
-    const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x999999 });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    // 床の位置を調整（中心が (cols*cellSize/2, 0, rows*cellSize/2) になるように）
-    floor.position.set(cols * cellSize / 2 - cellSize / 2, 0, rows * cellSize / 2 - cellSize / 2);
-    scene.add(floor);
-
-    // 壁のマテリアルとサイズの設定
-    const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
-    const wallThickness = 0.5;
-    const wallHeight = 5;
-
-    // 各セルの壁情報に従い、3D の壁オブジェクトを配置
-    grid.forEach(cell => {
-      const x = cell.i * cellSize;
-      const z = cell.j * cellSize;
-      // 上の壁（北側）
-      if (cell.walls[0]) {
-        const geometry = new THREE.BoxGeometry(cellSize + wallThickness, wallHeight, wallThickness);
-        const wall = new THREE.Mesh(geometry, wallMaterial);
-        wall.position.set(x + cellSize / 2, wallHeight / 2, z);
-        scene.add(wall);
-      }
-      // 右の壁（東側）
-      if (cell.walls[1]) {
-        const geometry = new THREE.BoxGeometry(wallThickness, wallHeight, cellSize + wallThickness);
-        const wall = new THREE.Mesh(geometry, wallMaterial);
-        wall.position.set(x + cellSize, wallHeight / 2, z + cellSize / 2);
-        scene.add(wall);
-      }
-      // 下の壁（南側）
-      if (cell.walls[2]) {
-        const geometry = new THREE.BoxGeometry(cellSize + wallThickness, wallHeight, wallThickness);
-        const wall = new THREE.Mesh(geometry, wallMaterial);
-        wall.position.set(x + cellSize / 2, wallHeight / 2, z + cellSize);
-        scene.add(wall);
-      }
-      // 左の壁（西側）
-      if (cell.walls[3]) {
-        const geometry = new THREE.BoxGeometry(wallThickness, wallHeight, cellSize + wallThickness);
-        const wall = new THREE.Mesh(geometry, wallMaterial);
-        wall.position.set(x, wallHeight / 2, z + cellSize / 2);
-        scene.add(wall);
-      }
-    });
-
-    // 必要に応じて、外枠の壁（迷路全体の境界）を追加することも可能です
-
-    /***********************************
-     * レンダリングとアニメーション処理
-     ***********************************/
+    // アニメーションループ
     function animate() {
       requestAnimationFrame(animate);
+      cube.rotation.x += 0.01;
+      cube.rotation.y += 0.01;
+      controls.update();
       renderer.render(scene, camera);
     }
     animate();
 
-    // ウィンドウリサイズ時の処理
+    // ウィンドウリサイズ対応
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
